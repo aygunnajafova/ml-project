@@ -47,7 +47,7 @@ class T5Dataset(Dataset):
         nl_path = os.path.join(data_folder, f"{split}.nl")
         self.nl_texts = load_lines(nl_path)
         
-        if split != "test":
+        if split not in ["test", "test2"]:
             sql_path = os.path.join(data_folder, f"{split}.sql")
             self.sql_texts = load_lines(sql_path)
             assert len(self.nl_texts) == len(self.sql_texts), "NL and SQL files must have same length"
@@ -157,7 +157,7 @@ def get_dataloader(batch_size, split):
     data_folder = 'data'
     dset = T5Dataset(data_folder, split)
     shuffle = split == "train"
-    collate_fn = normal_collate_fn if split != "test" else test_collate_fn
+    collate_fn = normal_collate_fn if split not in ["test", "test2"] else test_collate_fn
 
     dataloader = DataLoader(dset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
     return dataloader
