@@ -47,12 +47,21 @@ class T5Dataset(Dataset):
         nl_path = os.path.join(data_folder, f"{split}.nl")
         self.nl_texts = load_lines(nl_path)
         
-        if split not in ["test", "test2"]:
+        # Load SQL if available (for train/dev/test2 evaluation, but not for test inference)
+        if split == "test":
+            self.sql_texts = None
+        elif split == "test2":
+            # test2 has SQL for evaluation, but we don't use it during inference
+            sql_path = os.path.join(data_folder, f"{split}.sql")
+            if os.path.exists(sql_path):
+                self.sql_texts = load_lines(sql_path)
+                assert len(self.nl_texts) == len(self.sql_texts), "NL and SQL files must have same length"
+            else:
+                self.sql_texts = None
+        else:
             sql_path = os.path.join(data_folder, f"{split}.sql")
             self.sql_texts = load_lines(sql_path)
             assert len(self.nl_texts) == len(self.sql_texts), "NL and SQL files must have same length"
-        else:
-            self.sql_texts = None
         
         self.processed_nl_texts = []
         for nl in self.nl_texts:
@@ -74,7 +83,8 @@ class T5Dataset(Dataset):
         )
         encoder_ids = encoder_inputs["input_ids"].squeeze(0)
         
-        if self.split == "test":
+        if self.split in ["test", "test2"]:
+            # For test and test2, only return encoder inputs (no ground truth SQL)
             initial_decoder_token = torch.tensor([self.bos_token_id])
             return encoder_ids, initial_decoder_token
         else:
