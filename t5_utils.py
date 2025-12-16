@@ -105,6 +105,70 @@ def freeze_layers(model, freeze_encoder_layers=None, freeze_decoder_layers=None,
     
     return model
 
+def train_only_decoder_layers(model, trainable_decoder_layers):
+    '''
+    Train only specific decoder layers, freezing everything else.
+    
+    Args:
+        model: T5 model instance
+        trainable_decoder_layers: List of decoder layer indices to keep trainable (0-indexed),
+                                 e.g., [0, 1] to train only decoder layers 0 and 1
+    
+    Returns:
+        model: Model with only specified decoder layers trainable
+    '''
+    num_encoder_layers = len(model.encoder.block)
+    num_decoder_layers = len(model.decoder.block)
+    
+    # Validate decoder layer indices
+    if not isinstance(trainable_decoder_layers, list) or len(trainable_decoder_layers) == 0:
+        raise ValueError("trainable_decoder_layers must be a non-empty list of decoder layer indices")
+    
+    for layer_idx in trainable_decoder_layers:
+        if layer_idx < 0 or layer_idx >= num_decoder_layers:
+            raise ValueError(f"Decoder layer index {layer_idx} is out of range [0, {num_decoder_layers-1}]")
+    
+    # Freeze all encoder layers
+    for i in range(num_encoder_layers):
+        for param in model.encoder.block[i].parameters():
+            param.requires_grad = False
+        print(f"Frozen encoder layer {i}")
+    
+    # Freeze all decoder layers except the ones specified
+    for i in range(num_decoder_layers):
+        if i in trainable_decoder_layers:
+            # Keep this layer trainable
+            for param in model.decoder.block[i].parameters():
+                param.requires_grad = True
+            print(f"Training decoder layer {i}")
+        else:
+            # Freeze this decoder layer
+            for param in model.decoder.block[i].parameters():
+                param.requires_grad = False
+            print(f"Frozen decoder layer {i}")
+    
+    # Freeze embeddings
+    for param in model.shared.parameters():
+        param.requires_grad = False
+    print("Frozen shared embeddings")
+    
+    # Freeze LM head
+    for param in model.lm_head.parameters():
+        param.requires_grad = False
+    print("Frozen language model head")
+    
+    # Print summary of trainable parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    frozen_params = total_params - trainable_params
+    
+    print(f"\nTraining Only Decoder Layers {trainable_decoder_layers}:")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params:,} ({100*trainable_params/total_params:.2f}%)")
+    print(f"  Frozen parameters: {frozen_params:,} ({100*frozen_params/total_params:.2f}%)\n")
+    
+    return model
+
 def mkdir(dirpath):
     if not os.path.exists(dirpath):
         try:

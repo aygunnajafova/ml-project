@@ -67,6 +67,10 @@ def save_queries_and_records(sql_queries: List[str], sql_path: str, record_path:
         * sql_path (str): Path to save SQL queries
         * record_path (str): Path to save database records associated with queries
     '''
+    # Create directories if they don't exist
+    os.makedirs(os.path.dirname(sql_path), exist_ok=True)
+    os.makedirs(os.path.dirname(record_path), exist_ok=True)
+    
     # First save the queries
     with open(sql_path, 'w') as f:
         for query in sql_queries:
