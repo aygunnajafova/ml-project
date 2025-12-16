@@ -39,6 +39,55 @@ python train_t5.py --finetune \
     --experiment_name my_experiment
 ```
 
+**Train only Encoder** (freeze all decoder layers):
+```bash
+python train_t5.py --finetune \
+    --learning_rate 1e-4 \
+    --max_n_epochs 20 \
+    --patience_epochs 10 \
+    --batch_size 32 \
+    --test_batch_size 32 \
+    --scheduler_type cosine \
+    --num_warmup_epochs 2 \
+    --weight_decay 0.01 \
+    --freeze_decoder_layers "all" \
+    --experiment_name encoder_only
+```
+
+**Train only Decoder** (freeze all encoder layers):
+```bash
+python train_t5.py --finetune \
+    --learning_rate 1e-4 \
+    --max_n_epochs 20 \
+    --patience_epochs 10 \
+    --batch_size 32 \
+    --test_batch_size 32 \
+    --scheduler_type cosine \
+    --num_warmup_epochs 2 \
+    --weight_decay 0.01 \
+    --freeze_encoder_layers "all" \
+    --experiment_name decoder_only
+```
+
+**Training with selective layer freezing** (freeze specific layers while training others):
+```bash
+# Freeze first 3 encoder layers and all decoder layers
+python train_t5.py --finetune \
+    --learning_rate 1e-4 \
+    --max_n_epochs 20 \
+    --freeze_encoder_layers "0,1,2" \
+    --freeze_decoder_layers "all" \
+    --experiment_name frozen_layers_experiment
+
+# Freeze embeddings and specific decoder layers
+python train_t5.py --finetune \
+    --learning_rate 1e-4 \
+    --max_n_epochs 20 \
+    --freeze_decoder_layers "0,1" \
+    --freeze_embeddings \
+    --experiment_name partial_freeze
+```
+
 ### Evaluation
 
 Evaluate model predictions on the development set:
@@ -97,6 +146,7 @@ ml-project/
 - **Scheduler**: Cosine or linear warmup scheduling
 - **Early Stopping**: Patience-based stopping on validation metrics
 - **Generation**: Beam search (default: 2 beams, max length: 512)
+- **Layer Freezing**: Freeze specific encoder/decoder layers, embeddings, or LM head for selective fine-tuning
 
 ### Dataset
 

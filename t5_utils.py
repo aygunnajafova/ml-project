@@ -29,6 +29,82 @@ def initialize_model(args):
     model = model.to(DEVICE)
     return model
 
+def freeze_layers(model, freeze_encoder_layers=None, freeze_decoder_layers=None, 
+                  freeze_embeddings=False, freeze_lm_head=False):
+    '''
+    Freeze specific layers of the T5 model.
+    
+    Args:
+        model: T5 model instance
+        freeze_encoder_layers: List of encoder layer indices to freeze (0-indexed), 
+                              or None to freeze all, or empty list to freeze none
+        freeze_decoder_layers: List of decoder layer indices to freeze (0-indexed),
+                              or None to freeze all, or empty list to freeze none
+        freeze_embeddings: If True, freeze shared embeddings
+        freeze_lm_head: If True, freeze the language model head
+    
+    Returns:
+        model: Model with specified layers frozen
+    '''
+    num_encoder_layers = len(model.encoder.block)
+    num_decoder_layers = len(model.decoder.block)
+    
+    # Freeze encoder layers
+    if freeze_encoder_layers is not None:
+        if freeze_encoder_layers == "all":
+            # Freeze all encoder layers
+            for i in range(num_encoder_layers):
+                for param in model.encoder.block[i].parameters():
+                    param.requires_grad = False
+                print(f"Frozen encoder layer {i}")
+        elif isinstance(freeze_encoder_layers, list) and len(freeze_encoder_layers) > 0:
+            # Freeze specific encoder layers
+            for i in range(num_encoder_layers):
+                if i in freeze_encoder_layers:
+                    for param in model.encoder.block[i].parameters():
+                        param.requires_grad = False
+                    print(f"Frozen encoder layer {i}")
+    
+    # Freeze decoder layers
+    if freeze_decoder_layers is not None:
+        if freeze_decoder_layers == "all":
+            # Freeze all decoder layers
+            for i in range(num_decoder_layers):
+                for param in model.decoder.block[i].parameters():
+                    param.requires_grad = False
+                print(f"Frozen decoder layer {i}")
+        elif isinstance(freeze_decoder_layers, list) and len(freeze_decoder_layers) > 0:
+            # Freeze specific decoder layers
+            for i in range(num_decoder_layers):
+                if i in freeze_decoder_layers:
+                    for param in model.decoder.block[i].parameters():
+                        param.requires_grad = False
+                    print(f"Frozen decoder layer {i}")
+    
+    # Freeze embeddings
+    if freeze_embeddings:
+        for param in model.shared.parameters():
+            param.requires_grad = False
+        print("Frozen shared embeddings")
+    
+    # Freeze LM head
+    if freeze_lm_head:
+        for param in model.lm_head.parameters():
+            param.requires_grad = False
+        print("Frozen language model head")
+    
+    # Print summary of trainable parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    frozen_params = total_params - trainable_params
+    
+    print(f"\nLayer Freezing Summary:")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params:,} ({100*trainable_params/total_params:.2f}%)")
+    print(f"  Frozen parameters: {frozen_params:,} ({100*frozen_params/total_params:.2f}%)\n")
+    
+    return model
+
 def mkdir(dirpath):
     if not os.path.exists(dirpath):
         try:

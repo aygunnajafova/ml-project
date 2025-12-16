@@ -7,7 +7,7 @@ import torch.nn as nn
 import numpy as np
 import wandb
 
-from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_model, load_model_from_checkpoint, setup_wandb
+from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_model, load_model_from_checkpoint, setup_wandb, freeze_layers
 from transformers import GenerationConfig, T5TokenizerFast
 from load_data import load_t5_data
 from utils import compute_metrics, save_queries_and_records
@@ -23,6 +23,16 @@ def get_args():
 
     # Model hyperparameters
     parser.add_argument('--finetune', action='store_true', help="Whether to finetune T5 or not")
+    
+    # Layer freezing hyperparameters
+    parser.add_argument('--freeze_encoder_layers', type=str, default=None,
+                       help="Comma-separated list of encoder layer indices to freeze (0-indexed), or 'all' to freeze all, e.g., '0,1,2' or 'all'")
+    parser.add_argument('--freeze_decoder_layers', type=str, default=None,
+                       help="Comma-separated list of decoder layer indices to freeze (0-indexed), or 'all' to freeze all, e.g., '0,1,2' or 'all'")
+    parser.add_argument('--freeze_embeddings', action='store_true',
+                       help="Freeze shared embeddings")
+    parser.add_argument('--freeze_lm_head', action='store_true',
+                       help="Freeze language model head")
     
     # Training hyperparameters
     parser.add_argument('--optimizer_type', type=str, default="AdamW", choices=["AdamW"],
@@ -49,6 +59,26 @@ def get_args():
     parser.add_argument('--test_batch_size', type=int, default=16)
 
     args = parser.parse_args()
+    
+    # Parse layer freezing arguments
+    if args.freeze_encoder_layers is not None:
+        if args.freeze_encoder_layers.lower() == 'all':
+            args.freeze_encoder_layers = "all"
+        else:
+            try:
+                args.freeze_encoder_layers = [int(x.strip()) for x in args.freeze_encoder_layers.split(',')]
+            except ValueError:
+                raise ValueError(f"Invalid encoder layer indices: {args.freeze_encoder_layers}. Use comma-separated integers or 'all'")
+    
+    if args.freeze_decoder_layers is not None:
+        if args.freeze_decoder_layers.lower() == 'all':
+            args.freeze_decoder_layers = "all"
+        else:
+            try:
+                args.freeze_decoder_layers = [int(x.strip()) for x in args.freeze_decoder_layers.split(',')]
+            except ValueError:
+                raise ValueError(f"Invalid decoder layer indices: {args.freeze_decoder_layers}. Use comma-separated integers or 'all'")
+    
     return args
 
 def train(args, model, train_loader, dev_loader, optimizer, scheduler):
@@ -253,6 +283,18 @@ def main():
     # Load the data and the model
     train_loader, dev_loader, test_loader = load_t5_data(args.batch_size, args.test_batch_size)
     model = initialize_model(args)
+    
+    # Apply layer freezing if specified
+    if (args.freeze_encoder_layers is not None or args.freeze_decoder_layers is not None or 
+        args.freeze_embeddings or args.freeze_lm_head):
+        model = freeze_layers(
+            model,
+            freeze_encoder_layers=args.freeze_encoder_layers,
+            freeze_decoder_layers=args.freeze_decoder_layers,
+            freeze_embeddings=args.freeze_embeddings,
+            freeze_lm_head=args.freeze_lm_head
+        )
+    
     optimizer, scheduler = initialize_optimizer_and_scheduler(args, model, len(train_loader))
 
     # Train 
